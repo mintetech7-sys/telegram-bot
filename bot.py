@@ -11,11 +11,7 @@ bot = telebot.TeleBot(TOKEN)
 ADMIN_ID = 6161012228
 FORCE_CHANNEL = "@minteorg"
 
-# 💳 STRIPE (optional)
-import stripe
-stripe.api_key = "YOUR_STRIPE_SECRET_KEY"
-
-# 📦 STORAGE (NO DB, NO JSON)
+# 📦 STORAGE (NO DB)
 BACKUP_FILE = "backup.dat"
 
 jps_files = []
@@ -115,7 +111,7 @@ upload_mode = {}
 def up_jps(m):
     if is_admin(m):
         upload_mode[m.chat.id] = "jps"
-        bot.reply_to(m, "📥 Send JPS file (5★ PAY CONTENT)")
+        bot.reply_to(m, "📥 Send JPS file (5⭐ STAR CONTENT)")
 
 @bot.message_handler(commands=['upload_styles'])
 def up_styles(m):
@@ -172,27 +168,27 @@ def start(message):
         return
 
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("🎹 JPS (5★)", "🎼 Styles")
+    markup.add("🎹 JPS (⭐ STAR)", "🎼 Styles")
     markup.add("🆕 New", "⚙️ Set")
 
     bot.send_message(message.chat.id, "⭐ SAFE STORE READY", reply_markup=markup)
 
 # =========================
-# 💳 JPS PAY (5★)
+# ⭐ TELEGRAM STARS PAYMENT (JPS)
 # =========================
-@bot.message_handler(func=lambda m: m.text == "🎹 JPS (5★)")
+@bot.message_handler(func=lambda m: m.text == "🎹 JPS (⭐ STAR)")
 def jps_buy(message):
     if not check_join(message):
         return
 
     bot.send_invoice(
-        message.chat.id,
+        chat_id=message.chat.id,
         title="JPS PACK (PREMIUM)",
-        description="5★ Paid Content",
+        description="⭐ Telegram Stars Content Pack",
         invoice_payload="jps_all",
-        provider_token="",
-        currency="USD",
-        prices=[LabeledPrice("JPS Pack", 500)]
+        provider_token="",  # REQUIRED EMPTY FOR STARS
+        currency="XTR",     # ⭐ Telegram Stars currency
+        prices=[LabeledPrice("JPS Pack", 100)]  # 100 stars
     )
 
 # =========================
@@ -220,7 +216,7 @@ def set_files_send(message):
         bot.send_document(message.chat.id, f)
 
 # =========================
-# 💳 PAYMENT HANDLER
+# ⭐ PAYMENT SUCCESS
 # =========================
 @bot.pre_checkout_query_handler(func=lambda q: True)
 def checkout(q):
@@ -258,5 +254,5 @@ def admin(message):
 # 🚀 START BOT
 # =========================
 load_backup()
-print("🚀 SAFE BOT RUNNING...")
+print("🚀 STAR-BASED BOT RUNNING...")
 bot.polling(none_stop=True)
