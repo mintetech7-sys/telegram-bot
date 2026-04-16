@@ -9,7 +9,7 @@ bot = telebot.TeleBot(TOKEN)
 ADMIN_ID = 6161012228
 DB_FILE = "files.json"
 USERS_FILE = "users.json"
-REQUIRED_CHANNEL = "@yourchannelusername"  # change this
+REQUIRED_CHANNEL = "@minteorg"  # change this
 
 
 def load_json(path, default):
