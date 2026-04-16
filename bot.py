@@ -1,8 +1,10 @@
 import telebot
+import os
 from telebot.types import ReplyKeyboardMarkup
 
 # 🔐 Bot token
-TOKEN = "7951915115:AAEXPj5IgrBsJpY3TaePejMA5u_EF5p_ri8"
+
+TOKEN = os.getenv("TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
 # 👑 Admin
