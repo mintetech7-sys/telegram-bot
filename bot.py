@@ -4,7 +4,10 @@ from telebot.types import ReplyKeyboardMarkup
 
 # 🔐 Token from Railway
 TOKEN = os.getenv("TOKEN")
-bot = telebot.TeleBot(TOKEN)
+
+if not TOKEN:
+    print("❌ TOKEN not found")
+    exit()
 
 # 👑 YOUR ADMIN ID (change this!)
 ADMIN_ID = 6161012228
