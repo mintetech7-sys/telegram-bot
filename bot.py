@@ -1,6 +1,6 @@
 import telebot
 import os
-import pickle
+import json
 from telebot.types import ReplyKeyboardMarkup, LabeledPrice
 
 # 🔐 TOKEN
@@ -11,18 +11,17 @@ bot = telebot.TeleBot(TOKEN)
 ADMIN_ID = 6161012228
 FORCE_CHANNEL = "@minteorg"
 
-# 📦 STORAGE (NO DB)
-BACKUP_FILE = "backup.dat"
+# 💾 JSON STORAGE
+BACKUP_FILE = "backup.json"
 
 jps_files = []
 style_files = []
 new_files = []
 set_files = []
-
 users = {}
 
 # =========================
-# 💾 BACKUP SYSTEM
+# 💾 SAVE / LOAD (JSON)
 # =========================
 def save_backup():
     data = {
@@ -32,16 +31,16 @@ def save_backup():
         "set": set_files,
         "users": users
     }
-    with open(BACKUP_FILE, "wb") as f:
-        pickle.dump(data, f)
+    with open(BACKUP_FILE, "w") as f:
+        json.dump(data, f)
 
 def load_backup():
     global jps_files, style_files, new_files, set_files, users
 
     if os.path.exists(BACKUP_FILE):
         try:
-            with open(BACKUP_FILE, "rb") as f:
-                data = pickle.load(f)
+            with open(BACKUP_FILE, "r") as f:
+                data = json.load(f)
 
             jps_files = data.get("jps", [])
             style_files = data.get("styles", [])
@@ -49,32 +48,32 @@ def load_backup():
             set_files = data.get("set", [])
             users = data.get("users", {})
         except:
-            pass
+            print("⚠️ Failed to load backup")
 
 # =========================
 # 👤 USER SYSTEM
 # =========================
 def add_user(user_id):
-    if user_id not in users:
-        users[user_id] = {"downloads": 0, "vip": 0}
+    if str(user_id) not in users:
+        users[str(user_id)] = {"downloads": 0, "vip": 0}
         save_backup()
 
 def is_vip(user_id):
-    return users.get(user_id, {}).get("vip", 0) == 1
+    return users.get(str(user_id), {}).get("vip", 0) == 1
 
 def can_download(user_id):
     if is_vip(user_id):
         return True
-    return users.get(user_id, {}).get("downloads", 0) < 3
+    return users.get(str(user_id), {}).get("downloads", 0) < 3
 
 def add_download(user_id):
-    if user_id in users:
-        users[user_id]["downloads"] += 1
+    if str(user_id) in users:
+        users[str(user_id)]["downloads"] += 1
         save_backup()
 
 def set_vip(user_id):
-    if user_id in users:
-        users[user_id]["vip"] = 1
+    if str(user_id) in users:
+        users[str(user_id)]["vip"] = 1
         save_backup()
 
 def get_user_count():
@@ -111,7 +110,7 @@ upload_mode = {}
 def up_jps(m):
     if is_admin(m):
         upload_mode[m.chat.id] = "jps"
-        bot.reply_to(m, "📥 Send JPS file (5⭐ STAR CONTENT)")
+        bot.reply_to(m, "📥 Send JPS file (5⭐)")
 
 @bot.message_handler(commands=['upload_styles'])
 def up_styles(m):
@@ -155,7 +154,7 @@ def get_file(message):
         set_files.append(file_id)
 
     save_backup()
-    bot.reply_to(message, "✅ File saved safely")
+    bot.reply_to(message, "✅ File saved permanently")
 
 # =========================
 # ▶️ START
@@ -168,52 +167,50 @@ def start(message):
         return
 
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("🎹 JPS (⭐ STAR)", "🎼 Styles")
+    markup.add("🎹 JPS (⭐)", "🎼 Styles")
     markup.add("🆕 New", "⚙️ Set")
 
-    bot.send_message(message.chat.id, "⭐ SAFE STORE READY", reply_markup=markup)
+    bot.send_message(message.chat.id, "⭐ STORE READY", reply_markup=markup)
 
 # =========================
-# ⭐ TELEGRAM STARS PAYMENT (JPS)
+# ⭐ PAYMENT (JPS)
 # =========================
-@bot.message_handler(func=lambda m: m.text == "🎹 JPS (⭐ STAR)")
+@bot.message_handler(func=lambda m: m.text == "🎹 JPS (⭐)")
 def jps_buy(message):
     if not check_join(message):
         return
 
     bot.send_invoice(
         chat_id=message.chat.id,
-        title="JPS PACK (PREMIUM)",
-        description="⭐ Telegram Stars Content Pack",
+        title="JPS PACK",
+        description="⭐ Premium Pack",
         invoice_payload="jps_all",
-        provider_token="",  # REQUIRED EMPTY FOR STARS
-        currency="XTR",     # ⭐ Telegram Stars currency
-        prices=[LabeledPrice("JPS Pack", 5)]  # 5 stars
+        provider_token="",
+        currency="XTR",
+        prices=[LabeledPrice("JPS Pack", 5)]
     )
 
 # =========================
-# 🆓 FILES (FREE)
+# 🆓 FILES
 # =========================
+def send_files(chat_id, files):
+    for f in files:
+        bot.send_document(chat_id, f)
+
 @bot.message_handler(func=lambda m: m.text == "🎼 Styles")
 def styles(message):
-    if not check_join(message):
-        return
-    for f in style_files:
-        bot.send_document(message.chat.id, f)
+    if check_join(message):
+        send_files(message.chat.id, style_files)
 
 @bot.message_handler(func=lambda m: m.text == "🆕 New")
 def new(message):
-    if not check_join(message):
-        return
-    for f in new_files:
-        bot.send_document(message.chat.id, f)
+    if check_join(message):
+        send_files(message.chat.id, new_files)
 
 @bot.message_handler(func=lambda m: m.text == "⚙️ Set")
 def set_files_send(message):
-    if not check_join(message):
-        return
-    for f in set_files:
-        bot.send_document(message.chat.id, f)
+    if check_join(message):
+        send_files(message.chat.id, set_files)
 
 # =========================
 # ⭐ PAYMENT SUCCESS
@@ -225,8 +222,7 @@ def checkout(q):
 @bot.message_handler(content_types=['successful_payment'])
 def success(message):
     if message.successful_payment.invoice_payload == "jps_all":
-        for f in jps_files:
-            bot.send_document(message.chat.id, f)
+        send_files(message.chat.id, jps_files)
 
 # =========================
 # 📡 ADMIN PANEL
@@ -238,12 +234,11 @@ def admin(message):
 
     bot.send_message(
         message.chat.id,
-        f"""
-📡 ADMIN PANEL
+        f"""📡 ADMIN PANEL
 
 👤 Users: {get_user_count()}
-💎 VIP users: {sum(1 for u in users.values() if u['vip'] == 1)}
-📦 JPS files: {len(jps_files)}
+💎 VIP: {sum(1 for u in users.values() if u['vip'] == 1)}
+🎹 JPS: {len(jps_files)}
 🎼 Styles: {len(style_files)}
 🆕 New: {len(new_files)}
 ⚙️ Set: {len(set_files)}
@@ -251,8 +246,8 @@ def admin(message):
     )
 
 # =========================
-# 🚀 START BOT
+# 🚀 RUN
 # =========================
 load_backup()
-print("🚀 STAR-BASED BOT RUNNING...")
-bot.polling(none_stop=True)
+print("🚀 BOT RUNNING WITH JSON STORAGE...")
+bot.infinity_polling()
