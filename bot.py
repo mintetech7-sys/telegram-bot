@@ -3,17 +3,29 @@ import os
 import json
 from telebot.types import ReplyKeyboardMarkup, LabeledPrice
 
-TOKEN = os.getenv("TOKEN")
+# 🔐 TOKEN
+TOKEN = os.getenv("TOKEN") or "YOUR_BOT_TOKEN_HERE"
 bot = telebot.TeleBot(TOKEN)
 
+# 👑 ADMIN
 ADMIN_ID = 6161012228
 CHANNEL = "@minteorg"
 
+# 💾 USER STORAGE ONLY
 DATA_FILE = "users.json"
 users = {}
 
+# 📦 FILE STORAGE (IN MEMORY)
+jps_files = []
+style_files = []
+new_files = []
+set_files = []
+
+# 📥 UPLOAD MODE (IMPORTANT FIX: use user_id, NOT chat_id)
+upload_mode = {}
+
 # =========================
-# 💾 USERS
+# 💾 SAVE / LOAD USERS
 # =========================
 def save():
     with open(DATA_FILE, "w") as f:
@@ -25,6 +37,9 @@ def load():
         with open(DATA_FILE, "r") as f:
             users = json.load(f)
 
+# =========================
+# 👤 USERS
+# =========================
 def add_user(uid):
     uid = str(uid)
     if uid not in users:
@@ -56,60 +71,72 @@ def check_join(msg):
         return False
     return True
 
+# =========================
+# 👑 ADMIN CHECK
+# =========================
 def is_admin(msg):
     return msg.from_user.id == ADMIN_ID
 
 # =========================
-# 📦 FILE LISTS (AUTO)
+# 📥 UPLOAD MODE (FIXED)
 # =========================
-jps_files = []
-style_files = []
-new_files = []
-set_files = []
+@bot.message_handler(commands=['upload_jps'])
+def up_jps(m):
+    if m.from_user.id == ADMIN_ID:
+        upload_mode[m.from_user.id] = "jps"
+        bot.reply_to(m, "📥 Send JPS file now")
+
+@bot.message_handler(commands=['upload_styles'])
+def up_styles(m):
+    if m.from_user.id == ADMIN_ID:
+        upload_mode[m.from_user.id] = "styles"
+        bot.reply_to(m, "📥 Send Style file now")
+
+@bot.message_handler(commands=['upload_new'])
+def up_new(m):
+    if m.from_user.id == ADMIN_ID:
+        upload_mode[m.from_user.id] = "new"
+        bot.reply_to(m, "📥 Send New file now")
+
+@bot.message_handler(commands=['upload_set'])
+def up_set(m):
+    if m.from_user.id == ADMIN_ID:
+        upload_mode[m.from_user.id] = "set"
+        bot.reply_to(m, "📥 Send Set file now")
 
 # =========================
-# 🔄 AUTO BUILD FROM CHANNEL
+# 📄 RECEIVE FILE (FIXED LOGIC)
 # =========================
-@bot.channel_post_handler(content_types=['document'])
-def auto_collect(m):
-    file_id = m.document.file_id
-    caption = (m.caption or "").lower()
-
-    if "#jps" in caption:
-        jps_files.append(file_id)
-    elif "#style" in caption:
-        style_files.append(file_id)
-    elif "#new" in caption:
-        new_files.append(file_id)
-    elif "#set" in caption:
-        set_files.append(file_id)
-
-# =========================
-# 📥 ADMIN UPLOAD
-# =========================
-upload_mode = {}
-
-@bot.message_handler(commands=['upload'])
-def upload(m):
-    if is_admin(m):
-        bot.reply_to(m, "Send file with caption:\n#jps / #style / #new / #set")
-
 @bot.message_handler(content_types=['document'])
-def receive(m):
-    if not is_admin(m):
+def get_file(m):
+    if m.from_user.id != ADMIN_ID:
         return
 
-    # forward to channel
-    bot.send_document(CHANNEL, m.document.file_id, caption=m.caption)
+    mode = upload_mode.get(m.from_user.id)
 
-    bot.reply_to(m, "✅ Uploaded to storage")
+    if not mode:
+        bot.reply_to(m, "⚠️ No upload mode selected")
+        return
+
+    file_id = m.document.file_id
+
+    if mode == "jps":
+        jps_files.append(file_id)
+    elif mode == "styles":
+        style_files.append(file_id)
+    elif mode == "new":
+        new_files.append(file_id)
+    elif mode == "set":
+        set_files.append(file_id)
+
+    bot.reply_to(m, f"✅ Saved in {mode} storage")
 
 # =========================
 # 📤 SEND FILES
 # =========================
 def send_files(chat_id, files, uid):
     if not files:
-        bot.send_message(chat_id, "❌ No files")
+        bot.send_message(chat_id, "❌ No files available")
         return
 
     for f in files:
@@ -131,28 +158,10 @@ def start(m):
     kb.add("🎹 JPS ⭐", "🎼 Styles")
     kb.add("🆕 New", "⚙️ Set")
 
-    bot.send_message(m.chat.id, "ULTIMATE STORE READY", reply_markup=kb)
+    bot.send_message(m.chat.id, "🚀 SYSTEM ONLINE", reply_markup=kb)
 
 # =========================
-# ⭐ PAYMENT
-# =========================
-@bot.message_handler(func=lambda m: m.text == "🎹 JPS ⭐")
-def pay(m):
-    if not check_join(m):
-        return
-
-    bot.send_invoice(
-        chat_id=m.chat.id,
-        title="JPS PACK",
-        description="Premium",
-        invoice_payload="jps",
-        provider_token="",
-        currency="XTR",
-        prices=[LabeledPrice("JPS", 5)]
-    )
-
-# =========================
-# 🆓 FILES
+# 🆓 FILE BUTTONS
 # =========================
 @bot.message_handler(func=lambda m: m.text == "🎼 Styles")
 def styles(m):
@@ -170,15 +179,11 @@ def setf(m):
         send_files(m.chat.id, set_files, m.from_user.id)
 
 # =========================
-# ⭐ SUCCESS
+# 📥 JPS (simple test version)
 # =========================
-@bot.pre_checkout_query_handler(func=lambda q: True)
-def checkout(q):
-    bot.answer_pre_checkout_query(q.id, ok=True)
-
-@bot.message_handler(content_types=['successful_payment'])
-def success(m):
-    if m.successful_payment.invoice_payload == "jps":
+@bot.message_handler(func=lambda m: m.text == "🎹 JPS ⭐")
+def jps(m):
+    if check_join(m):
         send_files(m.chat.id, jps_files, m.from_user.id)
 
 # =========================
@@ -191,7 +196,7 @@ def admin(m):
 
     bot.send_message(
         m.chat.id,
-        f"""📊 ULTIMATE STATS
+        f"""📊 ADMIN PANEL
 
 👤 Users: {len(users)}
 📥 Downloads: {total_downloads()}
@@ -207,5 +212,5 @@ def admin(m):
 # 🚀 RUN
 # =========================
 load()
-print("🚀 ULTIMATE BOT RUNNING")
+print("🚀 ULTIMATE STABLE BOT RUNNING")
 bot.infinity_polling()
