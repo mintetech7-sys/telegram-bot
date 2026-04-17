@@ -188,7 +188,7 @@ def jps_buy(message):
         invoice_payload="jps_all",
         provider_token="",  # REQUIRED EMPTY FOR STARS
         currency="XTR",     # ⭐ Telegram Stars currency
-        prices=[LabeledPrice("JPS Pack", 100)]  # 100 stars
+        prices=[LabeledPrice("JPS Pack", 5)]  # 5 stars
     )
 
 # =========================
